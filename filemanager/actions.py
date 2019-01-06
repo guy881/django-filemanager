@@ -41,6 +41,20 @@ class Action:
             return self.get_directory_name(), self.get_directory_path()
         return self.get_file_name(), self.get_file_path()
 
+    def get_message_with_prefix(self, message):
+        prefix = 'Folder ' if self.is_directory else 'File '
+        message = "{}{}".format(prefix, message)
+        return message
+
+    def add_message(self, message, name='', dir_prefix=False):
+        if dir_prefix:
+            message = self.get_message_with_prefix(message)
+
+        if name:
+            self.messages.append("{} {}".format(message, name))
+        else:
+            self.messages.append(message)
+
 
 class UploadAction(Action):
     def process_action(self):
@@ -125,60 +139,33 @@ class UploadAction(Action):
 
 class RenameAction(Action):
     def process_action(self):
-
-        if self.is_directory:
-            oldname = self.get_directory_name()
-            path = self.get_directory_path()
-            try:
-                os.chdir(self.config['basepath'] + path)
-                os.rename(oldname, self.name)
-                self.messages.append(
-                    'Folder renamed successfully from '
-                    + oldname
-                    + ' to '
-                    + self.name
-                )
-            except OSError:
-                self.messages.append('Folder couldn\'t renamed to ' + self.name)
-            except Exception as e:
-                self.messages.append('Unexpected error : ' + e)
+        oldname, path = self.get_name_and_path()
 
         if not self.is_directory:
-            oldname = self.get_file_name()
-            old_ext = (
-                oldname.split('.')[1]
-                if len(oldname.split('.')) > 1
-                else None
-            )
-            new_ext = self.name.split('.')[1] if len(self.name.split('.')) > 1 else None
-            if old_ext == new_ext:
-                self.path = self.get_file_path()
-                try:
-                    os.chdir(self.config['basepath'] + self.path)
-                    os.rename(oldname, self.name)
-                    self.messages.append(
-                        'File renamed successfully from '
-                        + oldname
-                        + ' to '
-                        + self.name
-                    )
-                except OSError:
-                    self.messages.append('File couldn\'t be renamed to ' + self.name)
-                except Exception as e:
-                    self.messages.append('Unexpected error : ' + e)
-            else:
+            old_ext = self.get_extension_from_filename(oldname)
+            new_ext = self.get_extension_from_filename(self.name)
+
+            if old_ext != new_ext:
                 if old_ext:
-                    self.messages.append(
-                        'File extension should be same : .'
-                        + old_ext
-                    )
+                    self.messages.append('File extension should be same : .' + old_ext)
                 else:
-                    self.messages.append(
-                        'New file extension didn\'t match with old file'
-                        + ' extension'
-                    )
+                    self.messages.append('New file extension didn\'t match with old file' + ' extension')
+
+                return self.messages
+
+        try:
+            os.chdir(self.config['basepath'] + path)
+            os.rename(oldname, self.name)
+            self.add_message('renamed successfully from ' + oldname + ' to ', self.name, dir_prefix=True)
+        except OSError:
+            self.add_message('couldn\'t be renamed to ', self.name, dir_prefix=True)
+        except Exception as e:
+            self.add_message('Unexpected error : ', str(e))
 
         return self.messages
+
+    def get_extension_from_filename(self, filename):
+        return filename.split('.')[1] if len(filename.split('.')) > 1 else None
 
 
 class DeleteAction(Action):
@@ -202,16 +189,6 @@ class DeleteAction(Action):
             self.add_message('Unexpected error : ', str(e))
 
         return self.messages
-
-    def add_message(self, message, name='', dir_prefix=False):
-        if dir_prefix:
-            prefix = 'Folder ' if self.is_directory else 'File '
-            message = "{}{}".format(prefix, message)
-
-        if name:
-            self.messages.append("{} : {}".format(message, name))
-        else:
-            self.messages.append(message)
 
 
 class AddAction(Action):
