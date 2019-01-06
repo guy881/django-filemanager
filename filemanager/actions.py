@@ -11,18 +11,35 @@ from .utils import get_size, rename_if_exists
 
 class Action:
 
-    def __init__(self, action, path, name, file_or_dir, files, current_path, messages, config):
+    def __init__(self, action, path, name, is_directory, files, current_path, config):
         self.action = action
         self.path = path
         self.name = name
-        self.file_or_dir = file_or_dir
+        self.is_directory = is_directory
         self.files = files
         self.current_path = current_path
-        self.messages = messages
         self.config = config
+        self.messages = []
 
     def process_action(self):
         pass
+
+    def get_file_path(self):
+        return '/'.join(self.path.split('/')[:-1])
+
+    def get_directory_path(self):
+        return '/'.join(self.path.split('/')[:-2])
+
+    def get_file_name(self):
+        return self.path.split('/')[-1]
+
+    def get_directory_name(self):
+        return self.path.split('/')[-2]
+
+    def get_name_and_path(self):
+        if self.is_directory:
+            return self.get_directory_name(), self.get_directory_path()
+        return self.get_file_name(), self.get_file_path()
 
 
 class UploadAction(Action):
@@ -109,10 +126,9 @@ class UploadAction(Action):
 class RenameAction(Action):
     def process_action(self):
 
-        # directory
-        if self.file_or_dir == 'dir':
-            oldname = self.path.split('/')[-2]
-            path = '/'.join(self.path.split('/')[:-2])
+        if self.is_directory:
+            oldname = self.get_directory_name()
+            path = self.get_directory_path()
             try:
                 os.chdir(self.config['basepath'] + path)
                 os.rename(oldname, self.name)
@@ -127,9 +143,8 @@ class RenameAction(Action):
             except Exception as e:
                 self.messages.append('Unexpected error : ' + e)
 
-                # file
-        if self.file_or_dir == 'file':
-            oldname = self.path.split('/')[-1]
+        if not self.is_directory:
+            oldname = self.get_file_name()
             old_ext = (
                 oldname.split('.')[1]
                 if len(oldname.split('.')) > 1
@@ -137,7 +152,7 @@ class RenameAction(Action):
             )
             new_ext = self.name.split('.')[1] if len(self.name.split('.')) > 1 else None
             if old_ext == new_ext:
-                self.path = '/'.join(self.path.split('/')[:-1])
+                self.path = self.get_file_path()
                 try:
                     os.chdir(self.config['basepath'] + self.path)
                     os.rename(oldname, self.name)
@@ -168,37 +183,35 @@ class RenameAction(Action):
 
 class DeleteAction(Action):
     def process_action(self):
-        if self.file_or_dir == 'dir':
-            if self.path == '/':
-                self.messages.append('root folder can\'t be deleted')
-            else:
-                name = self.path.split('/')[-2]
-                self.path = '/'.join(self.path.split('/')[:-2])
-                try:
-                    os.chdir(self.config['basepath'] + self.path)
-                    shutil.rmtree(name)
-                    self.messages.append('Folder deleted successfully : ' + name)
-                except OSError:
-                    self.messages.append('Folder couldn\'t deleted : ' + name)
-                except Exception as e:
-                    self.messages.append('Unexpected error : ' + e)
+        if self.path == '/':
+            self.add_message('root folder can\'t be deleted')
+            return self.messages
 
-        elif self.file_or_dir == 'file':
-            if self.path == '/':
-                self.messages.append('root folder can\'t be deleted')
+        name, path = self.get_name_and_path()
+        os.chdir(self.config['basepath'] + path)
+
+        try:
+            if self.is_directory:
+                shutil.rmtree(name)
             else:
-                name = self.path.split('/')[-1]
-                self.path = '/'.join(self.path.split('/')[:-1])
-                try:
-                    os.chdir(self.config['basepath'] + self.path)
-                    os.remove(name)
-                    self.messages.append('File deleted successfully : ' + name)
-                except OSError:
-                    self.messages.append('File couldn\'t deleted : ' + name)
-                except Exception as e:
-                    self.messages.append('Unexpected error : ' + e)
+                os.remove(name)
+            self.add_message('deleted successfully : ', name, dir_prefix=True)
+        except OSError:
+            self.add_message('couldn\'t be deleted : ', name, dir_prefix=True)
+        except Exception as e:
+            self.add_message('Unexpected error : ', str(e))
 
         return self.messages
+
+    def add_message(self, message, name='', dir_prefix=False):
+        if dir_prefix:
+            prefix = 'Folder ' if self.is_directory else 'File '
+            message = "{}{}".format(prefix, message)
+
+        if name:
+            self.messages.append("{} : {}".format(message, name))
+        else:
+            self.messages.append(message)
 
 
 class AddAction(Action):
@@ -245,7 +258,7 @@ class MoveAction(Action):
                 if self.action == 'move':
                     method = shutil.move
                 else:
-                    if self.file_or_dir == 'dir':
+                    if self.is_directory:
                         method = shutil.copytree
                     else:
                         method = shutil.copy
@@ -267,7 +280,7 @@ class CopyAction(MoveAction):
 
 class UnzipAction(Action):
     def process_action(self):
-        if self.file_or_dir == 'dir':
+        if self.is_directory:
             self.messages.append('Cannot unzip a directory')
         else:
             try:
@@ -303,7 +316,7 @@ class UnzipAction(Action):
         return self.messages
 
 
-def handle_action(action, path, name, file_or_dir, files, current_path, messages, config):
+def handle_action(action, path, name, is_directory, files, current_path, config):
     action_classes = {
         'upload': UploadAction,
         'add': AddAction,
@@ -315,7 +328,7 @@ def handle_action(action, path, name, file_or_dir, files, current_path, messages
     }
 
     action_class = action_classes.get(action)
-    action_class_instance = action_class(action, path, name, file_or_dir, files, current_path, messages, config)
-    new_messages = action_class_instance.process_action()
+    action_class_instance = action_class(action, path, name, is_directory, files, current_path, config)
+    messages = action_class_instance.process_action()
 
-    return new_messages
+    return messages

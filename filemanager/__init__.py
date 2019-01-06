@@ -66,10 +66,11 @@ class FileManager(object):
         file_or_dir = form.cleaned_data['file_or_dir']
         self.current_path = form.cleaned_data['current_path']
         messages = []
+        is_directory = file_or_dir == 'dir'
 
         invalid_folder_name = (
             name
-            and file_or_dir == 'dir'
+            and is_directory
             and not re.match(r'[\w\d_ -]+', name).group(0) == name
         )
         if invalid_folder_name:
@@ -78,7 +79,7 @@ class FileManager(object):
 
         invalid_file_name = (
             name
-            and file_or_dir == 'file'
+            and not is_directory
             and (
                 re.search(r'\.\.', name)
                 or not re.match(r'[\w\d_ -.]+', name).group(0) == name
@@ -94,7 +95,7 @@ class FileManager(object):
             return messages
 
         # actual handling of action
-        handle_action(action, path, name, file_or_dir, files, self.current_path, messages, self.config)
+        messages = handle_action(action, path, name, is_directory, files, self.current_path, self.config)
 
         return messages
 
