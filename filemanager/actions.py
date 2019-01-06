@@ -95,46 +95,25 @@ class UploadAction(Action):
         if file_name_invalid:
             self.messages.append("File name is not valid : " + f.name)
         elif f.size > self.config['maxfilesize'] * 1024:
-            self.messages.append(
-                "File size exceeded "
-                + str(self.config['maxfilesize'])
-                + " KB : "
-                + f.name
-            )
+            self.messages.append("File size exceeded " + str(self.config['maxfilesize']) + " KB : " + f.name)
         elif (
                 self.config['FILEMANAGER_CHECK_SPACE'] and
-                (
-                        (get_size(self.config['basepath']) + f.size)
-                        > self.config['maxspace'] * 1024
-                )
+                ((get_size(self.config['basepath']) + f.size) > self.config['maxspace'] * 1024)
         ):
-            self.messages.append(
-                "Total Space size exceeded "
-                + str(self.config['maxspace'])
-                + " KB : "
-                + f.name
-            )
+            self.messages.append("Total Space size exceeded " + str(self.config['maxspace']) + " KB : " + f.name)
         elif (
                 self.config['extensions']
                 and len(f.name.split('.')) > 1
                 and f.name.split('.')[-1] not in self.config['extensions']
         ):
-            self.messages.append(
-                "File extension not allowed (."
-                + f.name.split('.')[-1]
-                + ") : "
-                + f.name
-            )
+            self.messages.append("File extension not allowed (." + f.name.split('.')[-1] + ") : " + f.name)
         elif (
                 self.config['extensions']
                 and len(f.name.split('.')) == 1
                 and f.name.split('.')[-1]
                 not in self.config['extensions']
         ):
-            self.messages.append(
-                "No file extension in uploaded file : "
-                + f.name
-            )
+            self.messages.append("No file extension in uploaded file : " + f.name)
 
 
 class RenameAction(Action):
