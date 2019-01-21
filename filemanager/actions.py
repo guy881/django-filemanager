@@ -10,7 +10,6 @@ from .utils import get_size, rename_if_exists
 
 
 class Action:
-
     def __init__(self, action, path, name, is_directory, files, current_path, config):
         self.action = action
         self.path = path
@@ -54,6 +53,24 @@ class Action:
             self.messages.append("{} {}".format(message, name))
         else:
             self.messages.append(message)
+
+    @staticmethod
+    def handle_action(action, path, name, is_directory, files, current_path, config):
+        action_classes = {
+            'upload': UploadAction,
+            'add': AddAction,
+            'delete': DeleteAction,
+            'rename': RenameAction,
+            'move': MoveAction,
+            'copy': CopyAction,
+            'unzip': UnzipAction,
+        }
+
+        action_class = action_classes.get(action)
+        action_class_instance = action_class(action, path, name, is_directory, files, current_path, config)
+        messages = action_class_instance.process_action()
+
+        return messages
 
 
 class UploadAction(Action):
@@ -270,21 +287,3 @@ class UnzipAction(Action):
                 self.messages.append('Extraction completed successfully.')
 
         return self.messages
-
-
-def handle_action(action, path, name, is_directory, files, current_path, config):
-    action_classes = {
-        'upload': UploadAction,
-        'add': AddAction,
-        'delete': DeleteAction,
-        'rename': RenameAction,
-        'move': MoveAction,
-        'copy': CopyAction,
-        'unzip': UnzipAction,
-    }
-
-    action_class = action_classes.get(action)
-    action_class_instance = action_class(action, path, name, is_directory, files, current_path, config)
-    messages = action_class_instance.process_action()
-
-    return messages

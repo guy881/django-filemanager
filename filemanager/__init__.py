@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 from . import settings
-from .actions import handle_action
+from .actions import Action
 from .forms import FileManagerForm
 from .utils import get_size, get_media
 
@@ -94,7 +94,7 @@ class FileManager(object):
             return messages
 
         # actual handling of action
-        messages = handle_action(action, path, name, is_directory, files, self.current_path, self.config)
+        messages = Action.handle_action(action, path, name, is_directory, files, self.current_path, self.config)
 
         return messages
 
